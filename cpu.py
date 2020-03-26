@@ -52,7 +52,14 @@ class CPU:
             JMP: self.JMP,
             JNE: self.JNE,
             JEQ: self.JEQ,
-            CMP: self.ALU_CMP
+            CMP: self.ALU_CMP,
+            AND: self.AND,
+            OR: self.OR,
+            XOR: self.XOR,
+            SHL: self.SHL,
+            SHR: self.SHR,
+            MOD: self.MOD,
+            NOT: self.NOT
         }
 
     def ram_read(self, mar):
@@ -179,3 +186,29 @@ class CPU:
             self.JMP(reg_num, _)
         else:
             self.pc += 2
+    
+    #STRETCH
+    def AND(self, reg_a, reg_b):
+        self.reg[reg_a] &= self.reg[reg_b]
+
+    def NOT(self, reg_num, _):
+        self.reg[reg_num] = ~self.reg[reg_num]
+
+    def OR(self, reg_a, reg_b):
+        self.reg[reg_a] |= self.reg[reg_b]
+
+    def SHL(self, reg_a, reg_b):
+        self.reg[reg_a] <<= self.reg[reg_b]
+
+    def SHR(self, reg_a, reg_b):
+        self.reg[reg_a] >>= self.reg[reg_b]
+
+    def XOR(self, reg_a, reg_b):
+        self.reg[reg_a] ^= self.reg[reg_b]
+    
+    def MOD(self, reg_a, reg_b):
+        if not self.reg[reg_b]:
+            print('ERROR: Cannot divide by zero')
+            self.handle_hlt()
+        else:
+            self.reg[reg_a] %= self.reg[reg_b]
