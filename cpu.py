@@ -1,6 +1,8 @@
 """CPU functionality."""
 
 import sys
+from datetime import datetime
+import msvcrt
 
 ADD = 0b10100000
 ADDI = 0b10100101
@@ -18,7 +20,7 @@ JNE = 0b01010110
 JEQ = 0b01010101
 
 
-#STRETCH
+# STRETCH
 AND = 0b10101000
 OR = 0b10101010
 SHL = 0b10101100
@@ -30,6 +32,7 @@ NOT = 0b01101001
 IRET = 0b00010011
 
 SP = 7
+IM = 5
 
 
 class CPU:
@@ -124,6 +127,10 @@ class CPU:
     def run(self):
         """Run the CPU."""
         while True:
+            self.timer_interrupt()
+            self.keyboard_interrupt()
+            self.check_interrupts()
+
             ir = self.ram_read(self.pc)
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
@@ -154,29 +161,16 @@ class CPU:
         value = self.reg[reg_num]
         self.reg[SP] -= 1
         self.ram_write(value, self.reg[SP])
-    
-    def IRET(self, *_):
-        for i in range(6, -1, -1):
-            self.handle_pop(i, _)
-
-        fl_reg = self.ram_read(self.reg[SP])
-        self.fl = fl_reg
-        self.reg[SP] += 1
-        return_addr = self.ram_read(self.reg[SP])
-        self.pc = return_addr
-        self.reg[SP] += 1
-
-        self.interrupts_active = True
 
     def ALU_MUL(self, reg_a, reg_b):
         self.reg[reg_a] *= self.reg[reg_b]
-    
+
     def ALU_ADD(self, reg_a, reg_b):
         self.reg[reg_a] += self.reg[reg_b]
-    
+
     def ADDI(self, reg_num, immediate):
         self.reg[reg_num] += immediate
-    
+
     def ALU_CMP(self, reg_a, reg_b):
         if self.reg[reg_a] == self.reg[reg_b]:
             self.fl = 1
@@ -209,8 +203,21 @@ class CPU:
             self.JMP(reg_num, _)
         else:
             self.pc += 2
-    
-    #STRETCH
+
+    # STRETCH
+    def IRET(self, *_):
+        for i in range(6, -1, -1):
+            self.handle_pop(i, _)
+
+        fl_reg = self.ram_read(self.reg[SP])
+        self.fl = fl_reg
+        self.reg[SP] += 1
+        return_addr = self.ram_read(self.reg[SP])
+        self.pc = return_addr
+        self.reg[SP] += 1
+
+        self.interrupts_active = True
+
     def AND(self, reg_a, reg_b):
         self.reg[reg_a] &= self.reg[reg_b]
 
@@ -228,10 +235,48 @@ class CPU:
 
     def XOR(self, reg_a, reg_b):
         self.reg[reg_a] ^= self.reg[reg_b]
-    
+
     def MOD(self, reg_a, reg_b):
         if not self.reg[reg_b]:
             print('ERROR: Cannot divide by zero')
             self.handle_hlt()
         else:
             self.reg[reg_a] %= self.reg[reg_b]
+
+    # Interrupt Functions
+      # Interrupt Methods
+    def timer_interrupt(self):
+        secs_elapsed = (datetime.now() - self.start_time).total_seconds()
+        if secs_elapsed >= 1:
+            self.reg[IS] |= 1
+            self.start_time = datetime.now()
+
+    def keyboard_interrupt(self):
+        if msvcrt.kbhit():
+            self.reg[IS] |= 0b10
+            self.ram_write(ord(msvcrt.getwch()), 0xF4)
+
+    # Helper method to push to stack
+    def util_push(self, value):
+        self.reg[SP] -= 1
+        self.ram_write(value, self.reg[SP])
+
+    def check_interrupts(self):
+        if self.interrupts_active:
+            masked = self.reg[IM] & self.reg[IS]
+            for i in range(8):
+                interrupted = ((masked >> i) & 1) == 1
+                if interrupted:
+                    self.interrupts_active = False
+                    self.reg[IS] = 0
+                    self.util_push(self.pc)
+                    self.util_push(self.fl)
+
+                    # Push R0-R6 on the stack
+                    for j in range(7):
+                        self.helper_push(self.reg[j])
+                    vector = 0xF8 + i
+                    # set PC to vector
+                    self.pc = self.ram_read(vector)
+
+                    break
