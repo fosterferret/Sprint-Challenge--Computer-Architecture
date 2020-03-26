@@ -3,7 +3,7 @@
 import sys
 
 ADD = 0b10100000
-
+CMP = 0b10100111
 MUL = 0b10100010
 LDI = 0b10000010
 PRN = 0b01000111
@@ -15,6 +15,16 @@ RET = 0b00010001
 JMP = 0b01010100
 JNE = 0b01010110
 JEQ = 0b01010101
+
+
+#STRETCH
+AND = 0b10101000
+OR = 0b10101010
+SHL = 0b10101100
+SHR = 0b10101101
+MOD = 0b10100100
+XOR = 0b10101011
+NOT = 0b01101001
 
 SP = 7
 
@@ -38,10 +48,11 @@ class CPU:
             POP: self.POP,
             CALL: self.CALL,
             RET: self.RET,
-            ADD: self.ALU_ADD
+            ADD: self.ALU_ADD,
             JMP: self.JMP,
             JNE: self.JNE,
-            JEQ: self.JEQ
+            JEQ: self.JEQ,
+            CMP: self.ALU_CMP
         }
 
     def ram_read(self, mar):
@@ -135,6 +146,14 @@ class CPU:
     
     def ALU_ADD(self, reg_a, reg_b):
         self.reg[reg_a] += self.reg[reg_b]
+    
+    def ALU_CMP(self, reg_a, reg_b):
+        if self.reg[reg_a] == self.reg[reg_b]:
+            self.fl = 1
+        elif self.reg[reg_a] < self.reg[reg_b]:
+            self.fl = 0b100
+        elif self.reg[reg_a] > self.reg[reg_b]:
+            self.fl = 0b10
 
     def CALL(self, reg_num, _):
         self.reg[SP] -= 1
