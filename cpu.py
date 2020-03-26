@@ -3,6 +3,7 @@
 import sys
 
 ADD = 0b10100000
+ADDI = 0b10100101
 CMP = 0b10100111
 MUL = 0b10100010
 LDI = 0b10000010
@@ -26,6 +27,8 @@ MOD = 0b10100100
 XOR = 0b10101011
 NOT = 0b01101001
 
+IRET = 0b00010011
+
 SP = 7
 
 
@@ -48,6 +51,7 @@ class CPU:
             POP: self.POP,
             CALL: self.CALL,
             RET: self.RET,
+            IRET: self.IRET,
             ADD: self.ALU_ADD,
             JMP: self.JMP,
             JNE: self.JNE,
@@ -59,8 +63,11 @@ class CPU:
             SHL: self.SHL,
             SHR: self.SHR,
             MOD: self.MOD,
-            NOT: self.NOT
+            NOT: self.NOT,
+            ADDI: self.ADDI
         }
+        self.start_time = datetime.now()
+        self.interrupts_active = True
 
     def ram_read(self, mar):
         return self.ram[mar]
@@ -147,12 +154,28 @@ class CPU:
         value = self.reg[reg_num]
         self.reg[SP] -= 1
         self.ram_write(value, self.reg[SP])
+    
+    def IRET(self, *_):
+        for i in range(6, -1, -1):
+            self.handle_pop(i, _)
+
+        fl_reg = self.ram_read(self.reg[SP])
+        self.fl = fl_reg
+        self.reg[SP] += 1
+        return_addr = self.ram_read(self.reg[SP])
+        self.pc = return_addr
+        self.reg[SP] += 1
+
+        self.interrupts_active = True
 
     def ALU_MUL(self, reg_a, reg_b):
         self.reg[reg_a] *= self.reg[reg_b]
     
     def ALU_ADD(self, reg_a, reg_b):
         self.reg[reg_a] += self.reg[reg_b]
+    
+    def ADDI(self, reg_num, immediate):
+        self.reg[reg_num] += immediate
     
     def ALU_CMP(self, reg_a, reg_b):
         if self.reg[reg_a] == self.reg[reg_b]:
