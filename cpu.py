@@ -1,8 +1,7 @@
 """CPU functionality."""
-
 import sys
 from datetime import datetime
-import msvcrt
+from getkey import getkey, keys
 
 ADD = 0b10100000
 ADDI = 0b10100101
@@ -18,6 +17,8 @@ RET = 0b00010001
 JMP = 0b01010100
 JNE = 0b01010110
 JEQ = 0b01010101
+PRA = 0b01001000
+IRET = 0b00010011
 
 
 # STRETCH
@@ -30,9 +31,11 @@ XOR = 0b10101011
 NOT = 0b01101001
 
 IRET = 0b00010011
+ST = 0b10000100
 
 SP = 7
 IM = 5
+IS = 6
 
 
 class CPU:
@@ -67,10 +70,13 @@ class CPU:
             SHR: self.SHR,
             MOD: self.MOD,
             NOT: self.NOT,
-            ADDI: self.ADDI
+            ADDI: self.ADDI,
+            PRA: self.PRA,
+            ST: self.ST,
         }
-        self.start_time = datetime.now()
         self.interrupts_active = True
+        self.start_time = datetime.now()
+        
 
     def ram_read(self, mar):
         return self.ram[mar]
@@ -104,32 +110,31 @@ class CPU:
         else:
             raise Exception("Unsupported ALU operation")
 
-    def trace(self):
-        """
-        Handy function to print out the CPU state. You might want to call this
-        from run() if you need help debugging.
-        """
+    # def trace(self):
+    #     """
+    #     Handy function to print out the CPU state. You might want to call this
+    #     from run() if you need help debugging.
+    #     """
 
-        print(f"TRACE: %02X | %02X %02X %02X |" % (
-            self.pc,
-            # self.fl,
-            # self.ie,
-            self.ram_read(self.pc),
-            self.ram_read(self.pc + 1),
-            self.ram_read(self.pc + 2)
-        ), end='')
+    #     print(f"TRACE: %02X | %02X %02X %02X |" % (
+    #         self.pc,
+    #         # self.fl,
+    #         # self.ie,
+    #         self.ram_read(self.pc),
+    #         self.ram_read(self.pc + 1),
+    #         self.ram_read(self.pc + 2)
+    #     ), end='')
 
-        for i in range(8):
-            print(" %02X" % self.reg[i], end='')
+    #     for i in range(8):
+    #         print(" %02X" % self.reg[i], end='')
 
-        print()
+    #     print()
 
     def run(self):
         """Run the CPU."""
         while True:
             self.timer_interrupt()
-            self.keyboard_interrupt()
-            self.check_interrupts()
+            self.check_interrupt()
 
             ir = self.ram_read(self.pc)
             operand_a = self.ram_read(self.pc + 1)
@@ -207,7 +212,7 @@ class CPU:
     # STRETCH
     def IRET(self, *_):
         for i in range(6, -1, -1):
-            self.handle_pop(i, _)
+           self.POP(i, _)
 
         fl_reg = self.ram_read(self.reg[SP])
         self.fl = fl_reg
@@ -218,6 +223,15 @@ class CPU:
 
         self.interrupts_active = True
 
+    def ST(self, reg_a, reg_b):
+        val = self.reg[reg_b]
+        address = self.reg[reg_a]
+        self.ram_write(val, address)
+
+    def PRA(self, reg_num, _):
+        print(chr(self.reg[reg_num]))
+
+    # ALU logical operations
     def AND(self, reg_a, reg_b):
         self.reg[reg_a] &= self.reg[reg_b]
 
@@ -239,29 +253,30 @@ class CPU:
     def MOD(self, reg_a, reg_b):
         if not self.reg[reg_b]:
             print('ERROR: Cannot divide by zero')
-            self.handle_hlt()
+            self.HLT()
         else:
             self.reg[reg_a] %= self.reg[reg_b]
 
     # Interrupt Functions
-      # Interrupt Methods
     def timer_interrupt(self):
         secs_elapsed = (datetime.now() - self.start_time).total_seconds()
         if secs_elapsed >= 1:
             self.reg[IS] |= 1
             self.start_time = datetime.now()
 
-    def keyboard_interrupt(self):
-        if msvcrt.kbhit():
-            self.reg[IS] |= 0b10
-            self.ram_write(ord(msvcrt.getwch()), 0xF4)
+    # def keyboard_interrupt(self):
+    #     if getkey():
+    #         print(getkey())
+    #         self.reg[IS] |= 0b10
+    #         self.ram_write(13, 0xF4)
+    #         self.HLT()
 
     # Helper method to push to stack
     def util_push(self, value):
         self.reg[SP] -= 1
         self.ram_write(value, self.reg[SP])
 
-    def check_interrupts(self):
+    def check_interrupt(self):
         if self.interrupts_active:
             masked = self.reg[IM] & self.reg[IS]
             for i in range(8):
@@ -274,7 +289,7 @@ class CPU:
 
                     # Push R0-R6 on the stack
                     for j in range(7):
-                        self.helper_push(self.reg[j])
+                        self.util_push(self.reg[j])
                     vector = 0xF8 + i
                     # set PC to vector
                     self.pc = self.ram_read(vector)

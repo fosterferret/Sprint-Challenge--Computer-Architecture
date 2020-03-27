@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 pylint = "*"
 autopep8 = "*"
+getkey = "*"
 
 [requires]
 python_version = "3.8"
