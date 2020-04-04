@@ -72,11 +72,10 @@ class CPU:
             NOT: self.NOT,
             ADDI: self.ADDI,
             PRA: self.PRA,
-            ST: self.ST,
+            ST: self.ST
         }
         self.interrupts_active = True
         self.start_time = datetime.now()
-        
 
     def ram_read(self, mar):
         return self.ram[mar]
@@ -212,7 +211,7 @@ class CPU:
     # STRETCH
     def IRET(self, *_):
         for i in range(6, -1, -1):
-           self.POP(i, _)
+            self.POP(i, _)
 
         fl_reg = self.ram_read(self.reg[SP])
         self.fl = fl_reg
